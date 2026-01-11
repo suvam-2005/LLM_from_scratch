@@ -123,3 +123,50 @@ class FeedForward(nn.Module):
 
         def forward(self, x):
             return self.layers(x)
+
+ffn = FeedForward(GPT_CONFIG_124M)
+
+x=torch.randn(2,3,768)  # (B, T, d_model)
+ffn(x).shape  # (B, T, d_model) B stands for batch size, T for sequence length and d_model for embedding dimension
+
+
+#Implementing shortcut connections
+
+class ExampleDeepNeuralNetwork(nn.Module):
+    def __init__(self, layer_sizes, use_shortcuts):
+        super().__init__()
+        self.layers = nn.ModuleList([
+            nn.Sequential(nn.Linear(layer_sizes[0], layer_sizes[1]), GELU()),
+            nn.Sequential(nn.Linear(layer_sizes[1], layer_sizes[2]), GELU()),
+            nn.Sequential(nn.Linear(layer_sizes[2], layer_sizes[3]), GELU()),
+            nn.Sequential(nn.Linear(layer_sizes[3], layer_sizes[4]), GELU()),
+            nn.Sequential(nn.Linear(layer_sizes[4], layer_sizes[5]), GELU())
+        ])
+
+    def forward(self, x):
+        for layer in self.layers:
+            layer_output = layer(x)
+            if self.use_shortcuts and x.shape == layer_output.shape:
+                x = x + layer_output  # Shortcut connection
+            else:
+                x=layer_output
+        return x
+
+def print_gradients(model, x):
+    output=model(x)
+    targeet=torch.tensor([[0.]])        
+
+    loss=nn.MSELoss()
+    loss=loss(output, targeet)
+    loss.backward()
+    for name, param in model.named_parameters():
+        if 'weight' in name:
+            print(f"{name} has gradient mean of {param.grad.abs().mean().item()}")
+
+layer_sizes=[3,3,3,3,3,1]
+sample_input=torch.tensor([[1.,0.,-1.]])
+
+torch.manual_seed(42)
+model_without_shortcuts=ExampleDeepNeuralNetwork(layer_sizes, use_shortcuts=False)
+print(model_without_shortcuts, sample_input)
+
